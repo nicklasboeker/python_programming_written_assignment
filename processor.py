@@ -200,7 +200,7 @@ class MappingProcessor(FunctionProcessor):
         print(f"[INFO] Mapped {mapped_df['ideal_function'].notna().sum()} of {len(mapped_df)} test points.")
         return mapped_df
 
-class Visualizer(FunctionProcessor):
+class Visualizer:
     """
     Uses Bokeh to generate an interactive HTML visualization
     that includes:
