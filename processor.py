@@ -21,9 +21,11 @@ import os
 from bokeh.plotting import figure, output_file, save
 from bokeh.palettes import Category10
 
+
 class DataLoadError(Exception):
     """Custom exception for errors during data loading."""
     pass
+
 
 # FUNCTION PROCESSOR
 class FunctionProcessor:
@@ -76,6 +78,7 @@ class FunctionProcessor:
             print(f"[ERROR] {e}")
             raise
 
+
 # TRAINING PROCESSOR
 class TrainingProcessor(FunctionProcessor):
     """
@@ -108,8 +111,8 @@ class TrainingProcessor(FunctionProcessor):
 
             for ideal_col in [f'y{i}' for i in range(1, 51)]:
                 if ideal_col in used:
-                    continue # Skip ideal functions that were already used for another training function
-                error = np.mean((self.train_df[train_col] - self.ideal_df[ideal_col]) ** 2) # Calculate mean squared error between training and ideal function
+                    continue
+                error = np.mean((self.train_df[train_col] - self.ideal_df[ideal_col]) ** 2)
                 if error < min_error:
                     min_error = error
                     best_match = ideal_col
@@ -121,7 +124,8 @@ class TrainingProcessor(FunctionProcessor):
             used.add(best_match)
 
         return self.chosen_matches
-    
+
+
 # MAPPING PROCESSOR
 class MappingProcessor(FunctionProcessor):
     """
@@ -171,7 +175,7 @@ class MappingProcessor(FunctionProcessor):
                 y_match = self.ideal_df.loc[self.ideal_df["x"] == x_test, ideal_col]
 
                 if y_match.empty:
-                    continue  # x not found
+                    continue
 
                 y_ideal_val = y_match.values[0]
                 delta_y = abs(y_test - y_ideal_val)
@@ -194,14 +198,16 @@ class MappingProcessor(FunctionProcessor):
                     "ideal_function": None
                 })
 
-        # Convert to DataFrame and save
         mapped_df = pd.DataFrame(mapped)
         mapped_df.to_csv(os.path.join(self.data_dir, "mapped_test_points.csv"), index=False)
         print(f"[INFO] Mapped {mapped_df['ideal_function'].notna().sum()} of {len(mapped_df)} test points.")
         return mapped_df
 
-class Visualizer:
+
+# VISUALIZER
+class Visualizer(FunctionProcessor):
     """
+    Inherits from FunctionProcessor.
     Uses Bokeh to generate an interactive HTML visualization
     that includes:
 
@@ -209,10 +215,6 @@ class Visualizer:
     - Chosen ideal functions
     - Mapped test points (color-coded)
     - Unmatched test points (gray crosses)
-
-    Attributes:
-        matches (dict): Mappings from training to ideal functions
-        output_path (str): Path to save the HTML visualization
     """
 
     def __init__(self, matches, data_dir="data", output_path="data/function_mapping_visualization.html"):
@@ -230,30 +232,24 @@ class Visualizer:
         Output:
             Saves an HTML file to the path defined in `self.output_path`.
         """
-        
-        # Load everything
         self.load_all()
         mapped_df = pd.read_csv(os.path.join(self.data_dir, "mapped_test_points.csv"))
 
-        # Prep colors
         palette = Category10[10]
         match_colors = {
             v["ideal_function"]: palette[i]
             for i, v in enumerate(self.matches.values())
         }
 
-        # Set up Bokeh
         output_file(self.output_path)
         p = figure(title="Training vs Ideal Functions with Mapped Test Points",
                    x_axis_label="x", y_axis_label="y", width=900, height=600)
 
-        # Plot training functions
         for i, train_col in enumerate(['y1', 'y2', 'y3', 'y4']):
             p.line(self.train_df['x'], self.train_df[train_col],
                    legend_label=f"Training {train_col}",
-                   line_width=2, color=palette[i+4])
+                   line_width=2, color=palette[i + 4])
 
-        # Plot ideal functions
         for train_col, match in self.matches.items():
             ideal_col = match["ideal_function"]
             color = match_colors[ideal_col]
@@ -261,14 +257,12 @@ class Visualizer:
                    legend_label=f"Ideal {ideal_col}",
                    line_width=2, line_dash='dashed', color=color)
 
-        # Plot matched test points
         for ideal_col, color in match_colors.items():
             df = mapped_df[mapped_df['ideal_function'] == ideal_col]
             p.scatter(df['x'], df['y'], size=6, color=color,
                       marker='circle', alpha=0.8,
                       legend_label=f"Test → {ideal_col}")
 
-        # Plot unmatched
         unmatched = mapped_df[mapped_df['ideal_function'].isna()]
         if not unmatched.empty:
             p.scatter(unmatched['x'], unmatched['y'], size=8, color='gray',
